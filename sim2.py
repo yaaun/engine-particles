@@ -45,12 +45,6 @@ GASPROPS = {
 # The X coordinates run horizontally to the screen, growing from left to right.
 # The Y coordinates run vertically to the screen, growing from top to bottom.
 #
-# ** POINTS **
-# Points are described using 2-tuples (pairs).
-#
-# ** VECTORS **
-# Vectors are described using 2-tuples (pairs).
-#
 # ** ANGLES **
 # Angles are described using numbers from 0 to 2PI. A vector with an angle of 0
 # is parallel to the X axis, and is directed towards positive X.
@@ -86,6 +80,7 @@ class Gas:
     self.radius = GASPROPS[name]["radius"]
     self.mass = GASPROPS[name]["mass"]
     self.color = GASPROPS[name]["color"]
+
 
 class Molecule:
   lastID = 0
@@ -153,14 +148,15 @@ class Volume:
         self._spatial[(j, i)] = []
 
   def _sort(self):
-    for k in self._spatial.keys():
-        self._spatial[k] = []
-    
-    for mol in self._mols.values():
-      cell_x = mol.x // self._cell_width
-      cell_y = mol.y // self._cell_height
-      
-      self._spatial[(cell_x, cell_y)].append(mol)
+    # for k in self._spatial.keys():
+    #     self._spatial[k] = []
+    # 
+    # for mol in self._mols.values():
+    #   cell_x = mol.x // self._cell_width
+    #   cell_y = mol.y // self._cell_height
+    #   
+    #   self._spatial[(cell_x, cell_y)].append(mol)
+    pass
   
   def __iter__(self):
     return iter(self._list)
@@ -169,10 +165,12 @@ class Volume:
     self._mols = lst
     self._sort()
 
-  def wallCollision(self, index):
+  def wallCollision(self, mol):
     """ 
     Detects whether the given particle collides with a wall (walls). Returns
-    the angle(s) of the surface(s) that the molecule has collided with.
+    the angle of the normal vector of the surface that the molecule has collided
+    with. The vector is directed **towards** the solid bulk of the barrier.
+    
     E.g. a collision with the top wall of a square would yield [PI/2].
     A collision with the bottom and left walls of the square would yield
     [PI, (3/2)PI].
@@ -180,8 +178,35 @@ class Volume:
     Note: index is a number that refers to the list index of the molecule
       that is being tested for wall collisions.
     """
-    #mol = self._list[index]
-    return []
+    
+    #mol = self._mols[id]
+    angle = None
+    
+    if  mol.x - mol.radius < 0 and mol.y - mol.radius < 0:
+        # Upper left corner.
+        angle = 3/4 * math.pi
+    elif mol.x + mol.radius > self.width and mol.y - mol.radius < 0:
+        # Upper right corner.
+        angle = 1/4 * math.pi
+    elif mol.x - mol.radius < 0 and mol.y + mol.radius > self.height:
+        # Lower left corner.
+        angle = 5/4 * math.pi
+    elif mol.x + mol.radius > self.width and mol.y + mol.radius > self.height:
+        angle = 7/4 * math.pi
+    elif mol.x - mol.radius < 0:
+        # Left wall.
+        angle = math.pi
+    elif mol.y - mol.radius < 0:
+        # Top wall.
+        angle = 1/2 * math.pi
+    elif mol.x + mol.radius > self.width:
+        # Right wall.
+        angle = 0
+    elif mol.y + mol.radius > self.height:
+        # Bottom wall.
+        angle = 3/2 * math.pi
+
+    return angle
     
   def findInRadius(self, id, radius):
     """
@@ -210,7 +235,7 @@ class Model:
         mol = Molecule("oxygen", self.id_counter)
         mol.setPosition(5 + random.randint(0, self.volume.width - 10),
             5 + random.randint(0, self.volume.height - 10))
-        mol.setVelocity(random.randint(1, 5), random.randint(1, 5))
+        mol.setVelocity(random.randint(-5, 5), random.randint(-5, 5))
         
         self.mols[self.id_counter] = mol
         self.id_counter += 1
@@ -219,7 +244,7 @@ class Model:
         mol = Molecule("fuel", self.id_counter)
         mol.setPosition(5 + random.randint(0, self.volume.width - 10),
             5 + random.randint(0, self.volume.height - 10))
-        mol.setVelocity(random.randint(1, 5), random.randint(1, 5))
+        mol.setVelocity(random.randint(-5, 5), random.randint(-5, 5))
         
         self.mols[self.id_counter] = mol
         self.id_counter += 1
@@ -234,15 +259,32 @@ class Model:
     # The integration step.
     for id, mol in self.mols.items():
         # Check if there are no collisions.
-        wallAngles = self.volume.wallCollision(mol)
-        collide = self.volume.findInRadius(id, mol.radius * 2)
+        wallAngle = self.volume.wallCollision(mol)
+        # collide = self.volume.findInRadius(id, mol.radius * 2)
         
-        # If no collisions, move the molecule.
-        new_x = mol.x + mol.vx
-        new_y = mol.y + mol.vy
+        if wallAngle != None:
+            # Change the basis of the velocity relative to the wall.
+            wall_vx = mol.vx * math.cos(-wallAngle) - mol.vy * math.sin(-wallAngle)
+            wall_vy = mol.vx * math.sin(-wallAngle) + mol.vy * math.cos(-wallAngle)
+            
+            if wall_vx > 0:
+                new_vx = wall_vx * math.cos(wallAngle) - wall_vx * math.sin(wallAngle)
+            else:
+                new_vx = mol.vx
+            
+            if wall_vy > 0:
+                new_vy = wall_vy * math.sin(wallAngle) + wall_vy * math.cos(wallAngle)
+            else:
+                new_vy = mol.vy
+            
+        # elif collide != None:
+        #    new_v
+        else:
+            new_vx = mol.vx
+            new_vy = mol.vy
         
-        new_vx = mol.vx
-        new_vy = mol.vy
+        new_x = mol.x + new_vx
+        new_y = mol.y + new_vy
         
         newmol = Molecule(mol.type, id)
         newmol.setPosition(new_x, new_y)
@@ -286,3 +328,4 @@ def run():
     file.close()
 
 run()
+
