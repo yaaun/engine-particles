@@ -52,13 +52,19 @@ GASPROPS = {
 
 
 # Configuration variables.
-Width = 600
-Height = 600
+Width = 400
+Height = 400
 WidthDivision = 10
 HeightDivision = 10
 OxygenParticles = 200
 FuelParticles = 100
 CarbonDioxideParticles = 0
+
+FastSpeed = 5
+SlowSpeed = 0.5
+
+StartAngle1 = 7 / 6 * math.pi
+StartAngle1Delta = math.pi
 
 
 def dist(m1, m2):
@@ -73,6 +79,12 @@ def randPosition(min_x, min_y, max_x, max_y):
     
 def randVelocity(max):
     return (random.random() * max, random.random() * max)
+
+def makeVec(angle, magnitude):
+    x = math.cos(angle) * magnitude
+    y = math.sin(angle) * magnitude
+    
+    return (x, y)
 
 
 class Gas:
@@ -233,18 +245,22 @@ class Model:
     
     for i in range(self.o2):
         mol = Molecule("oxygen", self.id_counter)
-        mol.setPosition(5 + random.randint(0, self.volume.width - 10),
-            5 + random.randint(0, self.volume.height - 10))
-        mol.setVelocity(random.randint(-5, 5), random.randint(-5, 5))
+        mol.setPosition(self.volume.width / 2, mol.radius * 2)
+        angle = StartAngle1 + StartAngle1Delta * (i / self.o2) * 2
+        mol.setVelocity(*makeVec(angle, SlowSpeed))
         
         self.mols[self.id_counter] = mol
         self.id_counter += 1
     
     for i in range(self.fuel):
         mol = Molecule("fuel", self.id_counter)
-        mol.setPosition(5 + random.randint(0, self.volume.width - 10),
-            5 + random.randint(0, self.volume.height - 10))
-        mol.setVelocity(random.randint(-5, 5), random.randint(-5, 5))
+        # mol.setPosition(5 + random.randint(0, self.volume.width - 10),
+        #    5 + random.randint(0, self.volume.height - 10))
+        # mol.setVelocity(random.randint(-5, 5), random.randint(-5, 5))
+        mol.setPosition(self.volume.width / 2, mol.radius * 2)
+        angle = StartAngle1 + StartAngle1Delta * (i / self.fuel) * 2
+        mol.setVelocity(*makeVec(angle, FastSpeed))
+        
         
         self.mols[self.id_counter] = mol
         self.id_counter += 1
@@ -261,8 +277,10 @@ class Model:
         # Check if there are no collisions.
         wallAngle = self.volume.wallCollision(mol)
         # collide = self.volume.findInRadius(id, mol.radius * 2)
+        #print("wallAngle is " + str(wallAngle))
         
         if wallAngle != None:
+            # print("Bounce of molecule " + str(id))
             # Change the basis of the velocity relative to the wall.
             wall_vx = mol.vx * math.cos(-wallAngle) - mol.vy * math.sin(-wallAngle)
             wall_vy = mol.vx * math.sin(-wallAngle) + mol.vy * math.cos(-wallAngle)
