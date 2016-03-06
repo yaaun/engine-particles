@@ -64,8 +64,8 @@ FastSpeed = 5
 SlowSpeed = 0.5
 Frames = 300
 
-StartAngle1 = 7 / 6 * math.pi
-StartAngle1Delta = math.pi
+StartAngle1 = 1/2 * math.pi
+StartAngle1Delta = 1/2 * math.pi
 
 
 def dist(m1, m2):
@@ -199,24 +199,24 @@ class Volume:
         angle = 1/4 * math.pi
     elif mol.x + mol.radius > self.width and mol.y - mol.radius < 0:
         # Upper right corner.
-        angle = 5/4 * math.pi
+        angle = 3/4 * math.pi
     elif mol.x - mol.radius < 0 and mol.y + mol.radius > self.height:
         # Lower left corner.
-        angle = 1/4 * math.pi
+        angle = -1/4 * math.pi
     elif mol.x + mol.radius > self.width and mol.y + mol.radius > self.height:
-        angle = 3/4 * math.pi
+        angle = -3/4 * math.pi
     elif mol.x - mol.radius < 0:
         # Left wall.
         angle = 0
     elif mol.y - mol.radius < 0:
         # Top wall.
-        angle = 3/2 * math.pi
+        angle = 1/2 * math.pi
     elif mol.x + mol.radius > self.width:
         # Right wall.
         angle = math.pi
     elif mol.y + mol.radius > self.height:
         # Bottom wall.
-        angle = 1/2 * math.pi
+        angle = -1/2 * math.pi
 
     return angle
     
@@ -277,21 +277,24 @@ class Model:
         # Check if there are no collisions.
         wallAngle = self.volume.wallCollision(mol)
         # collide = self.volume.findInRadius(id, mol.radius * 2)
-        #print("wallAngle is " + str(wallAngle))
+        #if mol.type == "fuel":
+        #    print("wallAngle is " + str(wallAngle))
         
         if wallAngle != None:
             vec_angle = math.atan2(mol.vy, mol.vx)
             magnitude = math.hypot(mol.vx, mol.vy)
             
-            # Convert from [-PI, PI] to [0, 2*PI]
-            if vec_angle < 0:
-                vec_angle = math.pi + (math.pi + vec_angle)
-            
             rel_angle = vec_angle - wallAngle
             
-            if 0 <= rel_angle < math.pi / 2 or 3/2 * math.pi < rel_angle < 2 * math.pi:
+            #if mol.type == "fuel":
+            #    print("vx = {}, vy = {}".format(mol.vx, mol.vy))
+            #    print("vec_angle = {}, rel_angle = {}".format(vec_angle, rel_angle))
+            
+            
+            if  rel_angle <= -1/2 * math.pi or rel_angle >= 1/2 * math.pi:
                 # Collision took place.
-                new_angle = 2 * math.pi - rel_angle
+                #print("Collision event at angle " + str(rel_angle))
+                new_angle = math.pi - rel_angle
                 new_angle += wallAngle
                 
                 new_vx, new_vy = makeVec(new_angle, magnitude)
