@@ -46,7 +46,7 @@ GASPROPS = {
 # The Y coordinates run vertically to the screen, growing from top to bottom.
 #
 # ** ANGLES **
-# Angles are described using numbers from 0 to 2PI. A vector with an angle of 0
+# Angles are described using numbers from -PI to PI. A vector with an angle of 0
 # is parallel to the X axis, and is directed towards positive X.
 
 
