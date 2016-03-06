@@ -52,8 +52,8 @@ GASPROPS = {
 
 
 # Configuration variables.
-Width = 400
-Height = 400
+Width = 600
+Height = 600
 WidthDivision = 10
 HeightDivision = 10
 OxygenParticles = 200
@@ -62,6 +62,7 @@ CarbonDioxideParticles = 0
 
 FastSpeed = 5
 SlowSpeed = 0.5
+Frames = 300
 
 StartAngle1 = 7 / 6 * math.pi
 StartAngle1Delta = math.pi
@@ -181,11 +182,10 @@ class Volume:
     """ 
     Detects whether the given particle collides with a wall (walls). Returns
     the angle of the normal vector of the surface that the molecule has collided
-    with. The vector is directed **towards** the solid bulk of the barrier.
+    with. The vector is directed **from** the solid bulk of the barrier.
     
-    E.g. a collision with the top wall of a square would yield [PI/2].
-    A collision with the bottom and left walls of the square would yield
-    [PI, (3/2)PI].
+    E.g. a collision with the top wall of a square would yield (3/2)*PI.
+    A collision with the bottom and left walls of the square would yield PI/4.
         
     Note: index is a number that refers to the list index of the molecule
       that is being tested for wall collisions.
@@ -196,27 +196,27 @@ class Volume:
     
     if  mol.x - mol.radius < 0 and mol.y - mol.radius < 0:
         # Upper left corner.
-        angle = 3/4 * math.pi
+        angle = 1/4 * math.pi
     elif mol.x + mol.radius > self.width and mol.y - mol.radius < 0:
         # Upper right corner.
-        angle = 1/4 * math.pi
+        angle = 5/4 * math.pi
     elif mol.x - mol.radius < 0 and mol.y + mol.radius > self.height:
         # Lower left corner.
-        angle = 5/4 * math.pi
+        angle = 1/4 * math.pi
     elif mol.x + mol.radius > self.width and mol.y + mol.radius > self.height:
-        angle = 7/4 * math.pi
+        angle = 3/4 * math.pi
     elif mol.x - mol.radius < 0:
         # Left wall.
-        angle = math.pi
+        angle = 0
     elif mol.y - mol.radius < 0:
         # Top wall.
-        angle = 1/2 * math.pi
+        angle = 3/2 * math.pi
     elif mol.x + mol.radius > self.width:
         # Right wall.
-        angle = 0
+        angle = math.pi
     elif mol.y + mol.radius > self.height:
         # Bottom wall.
-        angle = 3/2 * math.pi
+        angle = 1/2 * math.pi
 
     return angle
     
@@ -280,20 +280,25 @@ class Model:
         #print("wallAngle is " + str(wallAngle))
         
         if wallAngle != None:
-            # print("Bounce of molecule " + str(id))
-            # Change the basis of the velocity relative to the wall.
-            wall_vx = mol.vx * math.cos(-wallAngle) - mol.vy * math.sin(-wallAngle)
-            wall_vy = mol.vx * math.sin(-wallAngle) + mol.vy * math.cos(-wallAngle)
+            vec_angle = math.atan2(mol.vy, mol.vx)
+            magnitude = math.hypot(mol.vx, mol.vy)
             
-            if wall_vx > 0:
-                new_vx = wall_vx * math.cos(wallAngle) - wall_vx * math.sin(wallAngle)
+            # Convert from [-PI, PI] to [0, 2*PI]
+            if vec_angle < 0:
+                vec_angle = math.pi + (math.pi + vec_angle)
+            
+            rel_angle = vec_angle - wallAngle
+            
+            if 0 <= rel_angle < math.pi / 2 or 3/2 * math.pi < rel_angle < 2 * math.pi:
+                # Collision took place.
+                new_angle = 2 * math.pi - rel_angle
+                new_angle += wallAngle
+                
+                new_vx, new_vy = makeVec(new_angle, magnitude)
             else:
                 new_vx = mol.vx
-            
-            if wall_vy > 0:
-                new_vy = wall_vy * math.sin(wallAngle) + wall_vy * math.cos(wallAngle)
-            else:
                 new_vy = mol.vy
+
             
         # elif collide != None:
         #    new_v
@@ -324,7 +329,7 @@ def run():
     parser = argparse.ArgumentParser()
     parser.add_argument("-o2", dest="o2", type=int, default=OxygenParticles)
     parser.add_argument("-fuel", dest="fuel", type=int, default=FuelParticles)
-    parser.add_argument("-f", dest="frames", type=int, default=100) # number of frames to execute
+    parser.add_argument("-f", dest="frames", type=int, default=Frames) # number of frames to execute
     opts = parser.parse_args()
     
     file = open("frames.csv", "w", newline="")
