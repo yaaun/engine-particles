@@ -64,8 +64,11 @@ FastSpeed = 5
 SlowSpeed = 0.5
 Frames = 300
 
-StartAngle1 = 1/2 * math.pi
-StartAngle1Delta = 1/2 * math.pi
+StartAngle1 = 1/6 * math.pi
+StartAngle1Delta = 4/6 * math.pi
+
+CritCount = 15
+SpawnCount = 20
 
 
 def dist(m1, m2):
@@ -228,7 +231,20 @@ class Volume:
     Note: the index argument is an index, and the return value is a list of
       molecule indexes.
     """
-    return [] # for now
+    pass
+
+  def countInRadius(self, mol, radius, type=None):
+    counter = 0
+    
+    for m in self._mols:
+        if (type == None or mol.type == m.type) and\
+           m.id != mol.id and dist(m, mol) < radius:
+            counter += 1
+            print("dist = {}".format(dist(m, mol)))
+    print(counter)
+   
+    return counter
+    
     
 
 class Model:
@@ -239,17 +255,17 @@ class Model:
     self.frame = 0
     # If self.frame is a multiple of this value, a snapshot will be made.
     self.keyframe_frames = 5
-    self.mols = {}
+    self.mols = []
     self.volume = Volume(Width, Height, WidthDivision, HeightDivision)
     self.id_counter = 0
     
     for i in range(self.o2):
         mol = Molecule("oxygen", self.id_counter)
         mol.setPosition(self.volume.width / 2, mol.radius * 2)
-        angle = StartAngle1 + StartAngle1Delta * (i / self.o2) * 2
+        angle = StartAngle1 + StartAngle1Delta * (i / self.o2)
         mol.setVelocity(*makeVec(angle, SlowSpeed))
         
-        self.mols[self.id_counter] = mol
+        self.mols.append(mol)
         self.id_counter += 1
     
     for i in range(self.fuel):
@@ -258,22 +274,23 @@ class Model:
         #    5 + random.randint(0, self.volume.height - 10))
         # mol.setVelocity(random.randint(-5, 5), random.randint(-5, 5))
         mol.setPosition(self.volume.width / 2, mol.radius * 2)
-        angle = StartAngle1 + StartAngle1Delta * (i / self.fuel) * 2
+        angle = StartAngle1 + StartAngle1Delta * (i / self.fuel)
         mol.setVelocity(*makeVec(angle, FastSpeed))
         
         
-        self.mols[self.id_counter] = mol
+        self.mols.append(mol)
         self.id_counter += 1
     
 
   def run(self):
     keyframe = False
-    newmols = {}
+    newmols = []
     
     self.volume.setList(self.mols)
     
     # The integration step.
-    for id, mol in self.mols.items():
+    for mol in self.mols:
+        id = mol.id
         # Check if there are no collisions.
         wallAngle = self.volume.wallCollision(mol)
         # collide = self.volume.findInRadius(id, mol.radius * 2)
@@ -315,7 +332,13 @@ class Model:
         newmol = Molecule(mol.type, id)
         newmol.setPosition(new_x, new_y)
         newmol.setVelocity(new_vx, new_vy)
-        newmols[id] = newmol
+        newmols.append(newmol)
+        
+        # Regardless of collisions, determine whether a new flame front should
+        # be placed based on the number of nearby molecules of the same type.
+        neighbors = self.volume.countInRadius(mol, mol.radius * 2, "nope")
+        if neighbors > CritCount:
+            newmols += self.makeMolecules(SpawnCount, "oxygen", mol.x, mol.y)
 
     self.mols = newmols
 
@@ -326,6 +349,16 @@ class Model:
         
     self.frame += 1
     return keyframe
+  
+  def makeMolecules(self, count, type, x, y, vangle=2*math.pi, mag=SlowSpeed):
+    lst = []
+    for i in range(count):
+        mol = Molecule(type, self.id_counter)
+        mol.setPosition(x, y)
+        mol.setVelocity(*makeVec(i / count * vangle, mag))
+        lst.append(mol)
+        self.id_counter += 1
+    return lst
 
 
 def run():
@@ -347,7 +380,7 @@ def run():
         if snap:
             file.write("!" + str(i) + "\r\n")
             
-            for v in snap.values():
+            for v in snap:
                 w.writerow((v.type, v.x, v.y, v.vx, v.vy))
 
 
